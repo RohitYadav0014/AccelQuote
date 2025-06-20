@@ -1,0 +1,35 @@
+location: eastus
+name: accelquote-ui
+resourceGroup: accelquote-rg
+properties:
+  managedEnvironmentId: /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/accelquote-rg/providers/Microsoft.App/managedEnvironments/accelquote-env
+  configuration:
+    ingress:
+      external: true
+      targetPort: 80
+      transport: http
+      allowInsecure: true
+      traffic:
+      - weight: 100
+        latestRevision: true
+    secrets: []
+  template:
+    containers:
+    - image: accelquoteui:latest
+      name: accelquote-ui
+      resources:
+        cpu: 0.25
+        memory: 0.5Gi
+      env:
+      - name: REACT_APP_API_BASE_URL
+        value: "http://20.81.208.37"
+      - name: REACT_APP_USE_MOCK_API
+        value: "false"
+    scale:
+      minReplicas: 1
+      maxReplicas: 3
+      rules:
+      - name: http-scaling
+        http:
+          metadata:
+            concurrentRequests: "10"
