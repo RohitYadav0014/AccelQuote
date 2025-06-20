@@ -168,34 +168,63 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
     };const user = JSON.parse(localStorage.getItem('current_user') || '{}');
     const fileId = fileName || extractionData?.fileId || '';    // Check if current user can edit discount (both Sales Engineer and Sales Director can edit)
     const canEditDiscount = userRole === 'Sales Director' || user?.role === 'Sales Director' || 
-                           userRole === 'Sales Engineer' || user?.role === 'Sales Engineer';
-
-    // Get max discount range based on user role
+                           userRole === 'Sales Engineer' || user?.role === 'Sales Engineer';    // Get max discount range based on user role and CNP discount response
     const getMaxDiscountRange = () => {
-        if (userRole === 'Sales Director' || user?.role === 'Sales Director') {
-            return 25; // Sales Director can edit up to 50%
-        } else if (userRole === 'Sales Engineer' || user?.role === 'Sales Engineer') {
-            return 5; // Sales Engineer can edit up to 25%
+        if (!discountInfo || !Array.isArray(discountInfo) || discountInfo.length === 0) {
+            // Fallback to hardcoded values if no discount info available
+            if (userRole === 'Sales Director' || user?.role === 'Sales Director') {
+                return 25;
+            } else if (userRole === 'Sales Engineer' || user?.role === 'Sales Engineer') {
+                return 5;
+            }
+            return 0;
         }
-        return 0;
-    };    // Removed unused edit functions for CNP & Discount Information tab    // Removed unused handleDiscountValueChange function - discount editing now happens in Final Pricing Details tab
 
-    // Function to handle final discount editing
+        // Get max discount from all manufacturers in the CNP discount response
+        let maxDiscount = 0;
+        discountInfo.forEach((discount: any) => {
+            let currentDiscount = 0;
+            if (userRole === 'Sales Director' || user?.role === 'Sales Director') {
+                currentDiscount = discount['Discount Authorization Sales Director'] || 0;
+            } else if (userRole === 'Sales Engineer' || user?.role === 'Sales Engineer') {
+                currentDiscount = discount['Discount Authorization Sales Engineer'] || 0;
+            }
+            
+            // Convert to number if it's a string and handle percentage format
+            if (typeof currentDiscount === 'string') {
+                currentDiscount = parseFloat(currentDiscount);
+            }
+            
+            // If the value is greater than 1, assume it's already in percentage format
+            if (typeof currentDiscount === 'number' && !isNaN(currentDiscount)) {
+                if (currentDiscount > 1) {
+                    // Value is already in percentage (e.g., 25 for 25%)
+                    maxDiscount = Math.max(maxDiscount, currentDiscount);
+                } else {
+                    // Value is in decimal (e.g., 0.25 for 25%)
+                    maxDiscount = Math.max(maxDiscount, currentDiscount * 100);
+                }
+            }
+        });
+
+        return maxDiscount > 0 ? maxDiscount : (
+            // Fallback if no valid discount found
+            userRole === 'Sales Director' || user?.role === 'Sales Director' ? 25 : 5
+        );
+    };// Removed unused edit functions for CNP & Discount Information tab    // Removed unused handleDiscountValueChange function - discount editing now happens in Final Pricing Details tab    // Function to handle final discount editing
     const handleFinalDiscountChange = (itemId: string, newDiscount: number) => {
-        const maxRange = getMaxDiscountRange();
+        const maxRange = getMaxDiscountRangeForItem(itemId);
         if (newDiscount > maxRange) {
             newDiscount = maxRange;
-            toast.error(`Maximum discount for your role is ${maxRange}%`);
+            toast.error(`Check discount range`);
         }
         setEditedFinalDiscounts(prev => ({
             ...prev,
             [itemId]: newDiscount
         }));
-    };
-
-    const handleStartFinalDiscountEdit = () => {
+    };const handleStartFinalDiscountEdit = () => {
         setIsEditingFinalDiscounts(true);
-        // Initialize with current discount values
+        // Initialize with current discount values, following approval workflow
         const currentDiscounts: Record<string, number> = {};
         if (discountInfo && extractionData.items_information) {
             const items = Array.isArray(extractionData.items_information) 
@@ -203,16 +232,33 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                 : [extractionData.items_information];
             
             items.forEach((item: any) => {
-                const discount = discountInfo.find((d: any) => d["Manufacturer"] === item["Manufacturer"]);
-                if (discount) {
-                    let currentDiscount = 0;
+                const itemId = item["Item ID"];
+                let currentDiscount = 0;
+                
+                // Follow the approval workflow
+                const itemAppliedDiscount = appliedDiscounts[itemId];
+                
+                if (itemAppliedDiscount) {
                     if (discountRole === 'Sales Engineer') {
-                        currentDiscount = discount['Discount Authorization Sales Engineer'] || 0;
+                        // SE edits their own discount
+                        if (itemAppliedDiscount.salesEngineer !== undefined) {
+                            currentDiscount = itemAppliedDiscount.salesEngineer;
+                        }
                     } else if (discountRole === 'Sales Director') {
-                        currentDiscount = discount['Discount Authorization Sales Director'] || 0;
+                        // SD can approve/override SE discount
+                        if (itemAppliedDiscount.salesDirector !== undefined) {
+                            // SD has already made a decision, edit that
+                            currentDiscount = itemAppliedDiscount.salesDirector;
+                        } else if (itemAppliedDiscount.salesEngineer !== undefined) {
+                            // SD reviewing SE discount, start with SE value
+                            currentDiscount = itemAppliedDiscount.salesEngineer;
+                        }
                     }
-                    currentDiscounts[item["Item ID"]] = currentDiscount;
                 }
+                  // If no applied discount found, default to 0 (not manufacturer default)
+                // This ensures discounts start at 0 when not previously set
+                
+                currentDiscounts[itemId] = currentDiscount;
             });
         }
         setEditedFinalDiscounts(currentDiscounts);
@@ -222,7 +268,39 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
         setIsEditingFinalDiscounts(false);
         setEditedFinalDiscounts({});
     };    const handleSaveFinalDiscountEdit = () => {
-        // Update the discount info with new values
+        // Save applied discounts separately
+        if (editedFinalDiscounts && user && user.username && fileId) {
+            // Convert the edited discounts to the format expected by applied discounts
+            const appliedDiscountsData: Record<string, { salesEngineer: number; salesDirector?: number }> = {};
+            
+            Object.entries(editedFinalDiscounts).forEach(([itemId, newDiscount]) => {
+                const existingApplied = appliedDiscounts[itemId] || { salesEngineer: 0 };
+                
+                if (discountRole === 'Sales Engineer') {
+                    // Sales Engineer sets their discount
+                    appliedDiscountsData[itemId] = {
+                        salesEngineer: newDiscount,
+                        // Keep existing Sales Director approval/override if it exists
+                        salesDirector: existingApplied.salesDirector
+                    };
+                } else if (discountRole === 'Sales Director') {
+                    // Sales Director can approve (use SE discount) or override with their own
+                    appliedDiscountsData[itemId] = {
+                        salesEngineer: existingApplied.salesEngineer || 0, // Keep SE discount
+                        salesDirector: newDiscount // SD's decision (approval or override)
+                    };
+                }
+            });
+            
+            // Merge with existing applied discounts
+            const updatedAppliedDiscounts = { ...appliedDiscounts, ...appliedDiscountsData };
+            setAppliedDiscounts(updatedAppliedDiscounts);
+            
+            // Save to localStorage
+            saveAppliedDiscounts(user.username, fileId, updatedAppliedDiscounts);
+        }
+
+        // Update the discount info with new values (keep existing functionality for backward compatibility)
         if (discountInfo && editedFinalDiscounts) {
             const newDiscountInfo = [...discountInfo];
             
@@ -251,21 +329,23 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
             if (user && user.username && fileId) {
                 saveCnpDiscount(user.username, fileId, newDiscountInfo);
             }
-            
-            setIsEditingFinalDiscounts(false);
-            setEditedFinalDiscounts({});
-            
-            // Clear final pricing to force recalculation
-            setFinalPricing(null);
-            if (user && user.username && fileId) {
-                saveFinalPricing(user.username, fileId, null);
-            }
-            
-            toast.success('Discounts updated successfully');
         }
-    };
-
-    // Load itemPrices, cnpDiscountInfo, and finalPricing from storage if available
+        
+        setIsEditingFinalDiscounts(false);
+        setEditedFinalDiscounts({});
+        
+        // Clear final pricing to force recalculation
+        setFinalPricing(null);
+        if (user && user.username && fileId) {
+            saveFinalPricing(user.username, fileId, null);
+        }
+        
+        if (discountRole === 'Sales Engineer') {
+            toast.success('Discounts applied and submitted for approval');
+        } else {
+            toast.success('Discounts approved/overridden successfully');
+        }
+    };// Load itemPrices, cnpDiscountInfo, finalPricing, and appliedDiscounts from storage if available
     useEffect(() => {
         if (user && user.username && fileId) {
             const storedPrices = getItemPrices(user.username, fileId);
@@ -275,6 +355,9 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
             }
             const storedFinal = getFinalPricing(user.username, fileId);
             if (storedFinal) setFinalPricing(storedFinal);
+            
+            const storedAppliedDiscounts = getAppliedDiscounts(user.username, fileId);
+            if (storedAppliedDiscounts) setAppliedDiscounts(storedAppliedDiscounts);
         }
     }, [user, fileId]);
 
@@ -441,19 +524,32 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
         } finally {
             setLoading(null);
         }
-    };
-
-    const renderPriceTable = (data: any) => {
+    };    const renderPriceTable = (data: any) => {
         if (!data || !Array.isArray(data) || data.length === 0) return null;
+        
         // Dynamically get columns from the first item
         const columns = Object.keys(data[0]);
+        
+        // Function to get user-friendly column names
+        const getColumnDisplayName = (columnName: string): string => {
+            const columnMap: Record<string, string> = {
+                'GlobalLP': 'Global List Price',
+                'Item ID': 'Item ID',
+                'Item Description': 'Item Description',
+                'Manufacturer': 'Manufacturer',
+                'Quantity': 'Quantity'
+            };
+            
+            return columnMap[columnName] || columnName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        };
+        
         return (
             <div className="overflow-x-auto">
                 <table className="min-w-full table-auto">
                     <thead>
                         <tr className="bg-gray-100">
                             {columns.map((col) => (
-                                <th key={col} className="px-4 py-2">{col}</th>
+                                <th key={col} className="px-4 py-2">{getColumnDisplayName(col)}</th>
                             ))}
                         </tr>
                     </thead>
@@ -479,7 +575,87 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                 <span className="block sm:inline">No processed item information available. Please process data from a PDF first.</span>
             </div>
         );
-    }    return (
+    }
+
+    // Helper function to check pending approvals
+    const getPendingApprovalsCount = () => {
+        if (!appliedDiscounts || discountRole !== 'Sales Director') return 0;
+        
+        let count = 0;
+        Object.values(appliedDiscounts).forEach((discount: any) => {
+            if (discount.salesEngineer !== undefined && discount.salesDirector === undefined) {
+                count++;
+            }
+        });
+        return count;
+    };
+
+    // Helper function to get workflow status for display
+    const getWorkflowStatus = () => {
+        if (!appliedDiscounts || Object.keys(appliedDiscounts).length === 0) {
+            return null;
+        }
+
+        if (discountRole === 'Sales Director') {
+            const pendingCount = getPendingApprovalsCount();
+            if (pendingCount > 0) {
+                return {
+                    type: 'warning',
+                    message: `${pendingCount} discount${pendingCount > 1 ? 's' : ''} pending your approval`
+                };
+            }
+        }
+
+        return null;
+    };
+
+    // Get max discount range for a specific item/manufacturer
+    const getMaxDiscountRangeForItem = (itemId: string) => {
+        if (!discountInfo || !extractionData.items_information) {
+            return getMaxDiscountRange();
+        }
+
+        // Find the item to get its manufacturer
+        const items = Array.isArray(extractionData.items_information) 
+            ? extractionData.items_information 
+            : [extractionData.items_information];
+        const item = items.find((i: any) => i["Item ID"] === itemId);
+        
+        if (!item) {
+            return getMaxDiscountRange();
+        }
+
+        // Find the discount info for this manufacturer
+        const manufacturerDiscount = discountInfo.find((d: any) => d["Manufacturer"] === item["Manufacturer"]);
+        
+        if (!manufacturerDiscount) {
+            return getMaxDiscountRange();
+        }
+
+        let maxDiscount = 0;
+        if (userRole === 'Sales Director' || user?.role === 'Sales Director') {
+            maxDiscount = manufacturerDiscount['Discount Authorization Sales Director'] || 0;
+        } else if (userRole === 'Sales Engineer' || user?.role === 'Sales Engineer') {
+            maxDiscount = manufacturerDiscount['Discount Authorization Sales Engineer'] || 0;
+        }
+
+        // Convert to number if it's a string and handle percentage format
+        if (typeof maxDiscount === 'string') {
+            maxDiscount = parseFloat(maxDiscount);
+        }
+        
+        if (typeof maxDiscount === 'number' && !isNaN(maxDiscount)) {
+            if (maxDiscount > 1) {
+                return maxDiscount; // Already in percentage
+            } else {
+                return maxDiscount * 100; // Convert from decimal
+            }
+        }
+
+        return getMaxDiscountRange(); // Fallback to general max
+    };
+
+    return (
         <div className="space-y-6 h-full overflow-y-auto">
 
             
@@ -731,6 +907,7 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                     'CNP Factor',
                                     'CNP',
                                     'Discount',
+                                    'Applied Discount',
                                     'FINAL CNP',
                                     'Total Price'
                                 ];
@@ -746,69 +923,182 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                     let cnpFactor = discount && discount[cnpKey];
                                     if (typeof cnpFactor === 'string') cnpFactor = parseFloat(cnpFactor);
                                     if (typeof cnpFactor !== 'number' || isNaN(cnpFactor)) cnpFactor = 0;                                    // CNP
-                                    const cnp = glp * cnpFactor;
-                                    // Discount Factor (as decimal)
+                                    const cnp = glp * cnpFactor;                                    // Discount Factor (as decimal)
                                     let discountFactor = 0;
+                                    let appliedDiscountValue = 0;
                                     
                                     // Check if we're editing final discounts and have a custom value
                                     if (isEditingFinalDiscounts && editedFinalDiscounts[item["Item ID"]] !== undefined) {
                                         discountFactor = editedFinalDiscounts[item["Item ID"]] / 100;
+                                        appliedDiscountValue = editedFinalDiscounts[item["Item ID"]];
                                     } else {
-                                        // Use the standard discount based on role
-                                        if (discountRole === 'Sales Engineer') {
-                                            discountFactor = discount && discount['Discount Authorization Sales Engineer'];
-                                        } else if (discountRole === 'Sales Director') {
-                                            discountFactor = discount && discount['Discount Authorization Sales Director'];
+                                        // Follow the approval workflow: SE applies -> SD approves/overrides
+                                        const itemAppliedDiscount = appliedDiscounts[item["Item ID"]];
+                                        
+                                        if (itemAppliedDiscount) {
+                                            if (discountRole === 'Sales Engineer') {
+                                                // Sales Engineer sees their own discount
+                                                if (itemAppliedDiscount.salesEngineer !== undefined) {
+                                                    appliedDiscountValue = itemAppliedDiscount.salesEngineer;
+                                                    discountFactor = appliedDiscountValue / 100;
+                                                }
+                                            } else if (discountRole === 'Sales Director') {
+                                                // Sales Director: use their override if exists, otherwise use SE discount
+                                                if (itemAppliedDiscount.salesDirector !== undefined) {
+                                                    // SD has made a decision (approval or override)
+                                                    appliedDiscountValue = itemAppliedDiscount.salesDirector;
+                                                    discountFactor = appliedDiscountValue / 100;
+                                                } else if (itemAppliedDiscount.salesEngineer !== undefined) {
+                                                    // SD sees SE discount for approval/override
+                                                    appliedDiscountValue = itemAppliedDiscount.salesEngineer;
+                                                    discountFactor = appliedDiscountValue / 100;
+                                                }
+                                            }                                        }
+                                        
+                                        // If no applied discount found, keep discount at 0% (no fallback to manufacturer defaults)
+                                        // This ensures that discounts start at 0% unless explicitly set by users
+                                        if (discountFactor === 0 && appliedDiscountValue === 0) {
+                                            // Keep both at 0 - no discount applied
+                                            discountFactor = 0;
+                                            appliedDiscountValue = 0;
                                         }
-                                        if (typeof discountFactor === 'string') discountFactor = parseFloat(discountFactor);
-                                        if (discountFactor > 1) discountFactor = discountFactor / 100;
-                                        if (typeof discountFactor !== 'number' || isNaN(discountFactor)) discountFactor = 0;
                                     }
+                                    
                                     // FINAL CNP
                                     const finalCnp = cnp * (1 - discountFactor);// Quantity
                                     const qty = item.Quantity || 1;
                                     // Total Price
-                                    const totalPrice = finalCnp * qty;                                    return {
-                                        'Item ID': item["Item ID"],
+                                    const totalPrice = finalCnp * qty;                                    return {                                        'Item ID': item["Item ID"],
                                         'Item Name': item["Item Description"] || item["Item Name"] || 'N/A',
                                         'Quantity': qty,
                                         'Manufacturer': item["Manufacturer"],
                                         'GLP': glp.toLocaleString(undefined, { style: 'currency', currency: 'USD' }),
                                         'CNP Factor': cnpFactor,
-                                        'CNP': cnp.toLocaleString(undefined, { style: 'currency', currency: 'USD' }),
-                                        'Discount': isEditingFinalDiscounts ? (
+                                        'CNP': cnp.toLocaleString(undefined, { style: 'currency', currency: 'USD' }),                                        'Discount': isEditingFinalDiscounts ? (
                                             <div className="flex items-center">
                                                 <input
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
-                                                    max={getMaxDiscountRange()}
+                                                    max={getMaxDiscountRangeForItem(item["Item ID"])}
                                                     value={editedFinalDiscounts[item["Item ID"]] || (discountFactor * 100)}
                                                     onChange={(e) => handleFinalDiscountChange(item["Item ID"], parseFloat(e.target.value) || 0)}
                                                     className="w-16 p-1 text-sm border rounded"
                                                 />
                                                 <span className="ml-1 text-sm">%</span>
                                             </div>
-                                        ) : (discountFactor * 100).toFixed(2) + '%',
+                                        ) : (discountFactor * 100).toFixed(2) + '%','Applied Discount': (() => {
+                                            // Check if this item has applied discounts
+                                            const itemAppliedDiscount = appliedDiscounts[item["Item ID"]];
+                                            
+                                            if (itemAppliedDiscount) {
+                                                const seDiscount = itemAppliedDiscount.salesEngineer;
+                                                const sdDiscount = itemAppliedDiscount.salesDirector;
+                                                
+                                                if (discountRole === 'Sales Engineer') {
+                                                    // Show SE's discount and approval status
+                                                    if (seDiscount !== undefined) {
+                                                        if (sdDiscount !== undefined) {
+                                                            // SD has reviewed
+                                                            if (sdDiscount === seDiscount) {
+                                                                return (
+                                                                    <div className="text-green-600 font-semibold">
+                                                                        <div>{seDiscount.toFixed(2)}% (SE)</div>
+                                                                        <div className="text-xs text-green-500">✓ Approved by SD</div>
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                return (
+                                                                    <div className="text-orange-600 font-semibold">
+                                                                        <div className="line-through">{seDiscount.toFixed(2)}% (SE)</div>
+                                                                        <div className="text-xs text-red-500">Overridden by SD: {sdDiscount.toFixed(2)}%</div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        } else {
+                                                            return (
+                                                                <div className="text-blue-600 font-semibold">
+                                                                    <div>{seDiscount.toFixed(2)}% (SE)</div>
+                                                                    <div className="text-xs text-orange-500">⏳ Pending SD approval</div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                    }
+                                                } else if (discountRole === 'Sales Director') {
+                                                    // Show SD's view of the workflow
+                                                    if (sdDiscount !== undefined) {
+                                                        // SD has made a decision
+                                                        if (sdDiscount === seDiscount) {
+                                                            return (
+                                                                <div className="text-green-600 font-semibold">
+                                                                    <div>{sdDiscount.toFixed(2)}% (Approved)</div>
+                                                                    <div className="text-xs text-gray-500">SE: {seDiscount?.toFixed(2)}%</div>
+                                                                </div>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <div className="text-blue-600 font-semibold">
+                                                                    <div>{sdDiscount.toFixed(2)}%</div>
+                                                                    <div className="text-xs text-gray-500">SE: {seDiscount?.toFixed(2)}%</div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                    } else if (seDiscount !== undefined) {
+                                                        // SE discount pending SD review
+                                                        return (
+                                                            <div className="text-orange-600 font-semibold">
+                                                                <div>{seDiscount.toFixed(2)}% (SE)</div>
+                                                                <div className="text-xs text-orange-500">🔍 Needs your approval</div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                            return <span className="text-gray-400">0% (No discount)</span>;
+                                        })(),
                                         'FINAL CNP': finalCnp.toLocaleString(undefined, { style: 'currency', currency: 'USD' }),
                                         'Total Price': totalPrice.toLocaleString(undefined, { style: 'currency', currency: 'USD' }),
                                         '_itemId': item["Item ID"] // Hidden field for reference
                                     };
                                 });
+                                
+                                // Helper function to filter out Applied Discount column for downloads
+                                const getDownloadableRows = (rows: any[]) => {
+                                    return rows.map(row => {
+                                        const { 'Applied Discount': _, '_itemId': __, ...downloadRow } = row;
+                                        return downloadRow;
+                                    });
+                                };
+                                
                                 return (
                                     <div className="rounded-lg border border-gray-200 overflow-hidden">                                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                             <div>
                                                 <h3 className="text-lg font-semibold text-gray-800">Final Pricing Details</h3>
+                                                {(() => {
+                                                    const workflowStatus = getWorkflowStatus();
+                                                    if (workflowStatus) {
+                                                        return (
+                                                            <div className={`mt-2 px-3 py-1 rounded-full text-sm font-medium ${
+                                                                workflowStatus.type === 'warning' 
+                                                                    ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+                                                                    : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                            }`}>
+                                                                <i className={`fas ${workflowStatus.type === 'warning' ? 'fa-clock' : 'fa-info-circle'} mr-1`}></i>
+                                                                {workflowStatus.message}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </div>{rows.length > 0 && (
                                                 <div className="flex gap-2">
                                                     {/* Discount Edit Controls */}
-                                                    {canEditDiscount && !isEditingFinalDiscounts && (
-                                                        <button
+                                                    {canEditDiscount && !isEditingFinalDiscounts && (                                                        <button
                                                             onClick={handleStartFinalDiscountEdit}
                                                             className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
                                                         >
                                                             <i className="fas fa-percentage"></i>
-                                                            Edit Discounts
+                                                            {discountRole === 'Sales Engineer' ? 'Apply Discounts' : 'Review/Approve Discounts'}
                                                         </button>
                                                     )}
                                                     {canEditDiscount && isEditingFinalDiscounts && (
@@ -818,7 +1108,7 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                                                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
                                                             >
                                                                 <i className="fas fa-save"></i>
-                                                                Save Discounts
+                                                                {discountRole === 'Sales Engineer' ? 'Submit for Approval' : 'Approve/Override'}
                                                             </button>
                                                             <button
                                                                 onClick={handleCancelFinalDiscountEdit}
@@ -828,27 +1118,25 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                                                 Cancel
                                                             </button>
                                                         </>
-                                                    )}
-                                                    {/* Show Quote Button */}
+                                                    )}                                                    {/* Show Quote Button */}
                                                     <button
                                                         onClick={() => {
-                                                            setQuotePreviewData(rows);
+                                                            setQuotePreviewData(getDownloadableRows(rows));
                                                             setShowQuotePreview(true);
                                                         }}
                                                         className="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold shadow hover:from-blue-700 hover:to-blue-700 transition"
                                                     >
                                                         <i className="fas fa-eye mr-2"></i>Show Quote
-                                                    </button>
-                                                    {/* Download Quote Button */}
+                                                    </button>{/* Download Quote Button */}
                                                     {onDownloadQuote && (
                                                         <button
-                                                            onClick={() => onDownloadQuote(rows)}
+                                                            onClick={() => onDownloadQuote(getDownloadableRows(rows))}
                                                             className="px-5 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold shadow hover:from-green-700 hover:to-green-600 transition"
                                                         >
                                                             <i className="fas fa-file-download mr-2"></i>Download Quote
                                                         </button>
                                                     )}
-                                                    <InvoiceDownload customerInfo={getEnhancedCustomerInfo()} finalPricing={rows} fileName={fileName} />
+                                                    <InvoiceDownload customerInfo={getEnhancedCustomerInfo()} finalPricing={getDownloadableRows(rows)} fileName={fileName} />
                                                 </div>
                                             )}
                                         </div>

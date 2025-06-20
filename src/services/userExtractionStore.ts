@@ -102,13 +102,16 @@ export function saveExtraction(username: string, fileId: string, extraction: any
 
 export function getExtraction(username: string, fileId: string): any | null {
   const records = getAllRecords();
-  const rec = records.find(r => r.username === username && r.fileId === fileId);
+  // Return extraction for any user who processed this file (shared across all users)
+  const rec = records.find(r => r.fileId === fileId);
   return rec ? rec.extraction : null;
 }
 
 export function getProcessedFileIds(username: string): string[] {
   const records = getAllRecords();
-  return records.filter(r => r.username === username).map(r => r.fileId);
+  // Return all processed files regardless of who processed them
+  const fileIds = records.map(r => r.fileId);
+  return Array.from(new Set(fileIds));
 }
 
 export function saveItemPrices(username: string, fileId: string, itemPrices: any) {
@@ -124,7 +127,8 @@ export function saveItemPrices(username: string, fileId: string, itemPrices: any
 
 export function getItemPrices(username: string, fileId: string): any | null {
   const records = getAllItemPricesRecords();
-  const rec = records.find((r: UserItemPricesRecord) => r.username === username && r.fileId === fileId);
+  // Return item prices for any user who processed this file (shared across all users)
+  const rec = records.find((r: UserItemPricesRecord) => r.fileId === fileId);
   return rec ? rec.itemPrices : null;
 }
 
@@ -141,7 +145,8 @@ export function saveCnpDiscount(username: string, fileId: string, cnpDiscount: a
 
 export function getCnpDiscountData(username: string, fileId: string): any | null {
   const records = getAllCnpDiscountRecords();
-  const rec = records.find((r: UserCnpDiscountRecord) => r.username === username && r.fileId === fileId);
+  // Return CNP discount for any user who processed this file (shared across all users)
+  const rec = records.find((r: UserCnpDiscountRecord) => r.fileId === fileId);
   return rec ? rec.cnpDiscount : null;
 }
 
@@ -158,7 +163,8 @@ export function saveFinalPricing(username: string, fileId: string, finalPricing:
 
 export function getFinalPricing(username: string, fileId: string): any | null {
   const records = getAllFinalPricingRecords();
-  const rec = records.find((r: UserFinalPricingRecord) => r.username === username && r.fileId === fileId);
+  // Return final pricing for any user who processed this file (shared across all users)
+  const rec = records.find((r: UserFinalPricingRecord) => r.fileId === fileId);
   return rec ? rec.finalPricing : null;
 }
 
@@ -183,10 +189,13 @@ export function getFileProcessingHistory(): Record<string, string[]> {
 // Applied Discounts functions
 export function saveAppliedDiscounts(username: string, fileId: string, appliedDiscounts: Record<string, { salesEngineer: number; salesDirector?: number }>) {
   const records = getAllAppliedDiscountsRecords();
-  const idx = records.findIndex((r: UserAppliedDiscountsRecord) => r.username === username && r.fileId === fileId);
+  // Find by fileId only (shared across all users)
+  const idx = records.findIndex((r: UserAppliedDiscountsRecord) => r.fileId === fileId);
   if (idx >= 0) {
+    // Update existing record, but keep the original username who first created it
     records[idx].appliedDiscounts = appliedDiscounts;
   } else {
+    // Create new record
     records.push({ username, fileId, appliedDiscounts });
   }
   localStorage.setItem(APPLIED_DISCOUNTS_KEY, JSON.stringify(records));
@@ -194,6 +203,7 @@ export function saveAppliedDiscounts(username: string, fileId: string, appliedDi
 
 export function getAppliedDiscounts(username: string, fileId: string): Record<string, { salesEngineer: number; salesDirector?: number }> | null {
   const records = getAllAppliedDiscountsRecords();
-  const rec = records.find((r: UserAppliedDiscountsRecord) => r.username === username && r.fileId === fileId);
+  // Return applied discounts for any user who processed this file (shared across all users)
+  const rec = records.find((r: UserAppliedDiscountsRecord) => r.fileId === fileId);
   return rec ? rec.appliedDiscounts : null;
 }
