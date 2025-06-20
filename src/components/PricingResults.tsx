@@ -23,15 +23,19 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
     const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
     const [discountRole, setDiscountRole] = useState<'Sales Engineer' | 'Sales Director'>('Sales Engineer');    const [activeTabIndex, setActiveTabIndex] = useState(0);    const [showQuotePreview, setShowQuotePreview] = useState(false);
     const [quotePreviewData, setQuotePreviewData] = useState<any>([]);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [emailAddress, setEmailAddress] = useState('');
     const [isEditingFinalDiscounts, setIsEditingFinalDiscounts] = useState(false);
     const [editedFinalDiscounts, setEditedFinalDiscounts] = useState<Record<string, number>>({});
-    const [appliedDiscounts, setAppliedDiscounts] = useState<Record<string, { salesEngineer: number; salesDirector?: number }>>({});// Reset all state when extractionData changes (new PDF processed)
+    const [appliedDiscounts, setAppliedDiscounts] = useState<Record<string, { salesEngineer: number; salesDirector?: number }>>({});    // Reset all state when extractionData changes (new PDF processed)
     React.useEffect(() => {
         setItemPrices(null);
         setDiscountInfo(null);
         setFinalPricing(null);
         setLoading(null);          setSelectedCurrency('USD');
         setDiscountRole('Sales Engineer');
+        setShowEmailModal(false);
+        setEmailAddress('');
         setIsEditingFinalDiscounts(false);
         setEditedFinalDiscounts({});
         // Check if in quote mode and navigate to Final Pricing Details tab
@@ -267,7 +271,20 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
     const handleCancelFinalDiscountEdit = () => {
         setIsEditingFinalDiscounts(false);
         setEditedFinalDiscounts({});
-    };    const handleSaveFinalDiscountEdit = () => {
+    };    // Handler for sending quote via email (non-functional placeholder)
+    const handleSendQuoteEmail = () => {
+        if (!emailAddress.trim()) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+        
+        // This is a placeholder function - email functionality would be implemented here
+        toast.success(`Quote would be sent to: ${emailAddress} (Feature not implemented yet)`);
+        setShowEmailModal(false);
+        setEmailAddress('');
+    };
+
+    const handleSaveFinalDiscountEdit = () => {
         // Save applied discounts separately
         if (editedFinalDiscounts && user && user.username && fileId) {
             // Convert the edited discounts to the format expected by applied discounts
@@ -1127,6 +1144,17 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                                         className="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold shadow hover:from-blue-700 hover:to-blue-700 transition"
                                                     >
                                                         <i className="fas fa-eye mr-2"></i>Show Quote
+                                                    </button>
+
+                                                    {/* Send Quote via Email Button */}
+                                                    <button
+                                                        onClick={() => {
+                                                            setQuotePreviewData(getDownloadableRows(rows));
+                                                            setShowEmailModal(true);
+                                                        }}
+                                                        className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold shadow hover:from-purple-700 hover:to-purple-700 transition"
+                                                    >
+                                                        <i className="fas fa-envelope mr-2"></i>Send via Email
                                                     </button>{/* Download Quote Button */}
                                                     {onDownloadQuote && (
                                                         <button
@@ -1237,6 +1265,65 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                                 onClick={() => setShowQuotePreview(false)}
                             >
                                 Close
+                            </button>                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Email Modal */}
+            {showEmailModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Send Quote via Email</h3>
+                            <button
+                                onClick={() => {
+                                    setShowEmailModal(false);
+                                    setEmailAddress('');
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <i className="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <div className="mb-4">
+                            <label htmlFor="emailAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                                Email Address
+                            </label>
+                            <input
+                                id="emailAddress"
+                                type="email"
+                                value={emailAddress}
+                                onChange={(e) => setEmailAddress(e.target.value)}
+                                placeholder="Enter recipient's email address"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            />
+                        </div>
+                        
+                        <div className="text-sm text-gray-600 mb-4">
+                            <p>The quote will be sent as a PDF attachment via email.</p>
+                            <p className="mt-1 text-xs text-orange-600">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                Note: This feature is currently non-functional (placeholder)
+                            </p>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSendQuoteEmail}
+                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                            >
+                                <i className="fas fa-paper-plane mr-2"></i>Send Quote
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowEmailModal(false);
+                                    setEmailAddress('');
+                                }}
+                                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-semibold"
+                            >
+                                Cancel
                             </button>
                         </div>
                     </div>
