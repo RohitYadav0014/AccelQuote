@@ -119,7 +119,7 @@
 
 #### Mixed Content Security Error (June 20, 2025)
 - **Issue**: Application served over HTTPS was trying to make HTTP requests to API server
-- **Error**: "Mixed Content: The page at 'https://...' was loaded over HTTPS, but requested an insecure resource 'http://172.203.227.114:8080//get_file_list'"
+- **Error**: "Mixed Content: The page at 'https://...' was loaded over HTTPS, but requested an insecure resource 'http://172.203.227.114:8080get_file_list'"
 - **Solution**: 
   - Updated API configuration to automatically match protocol with current page
   - Enhanced error handling with specific mixed content error detection
