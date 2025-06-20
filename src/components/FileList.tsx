@@ -160,6 +160,14 @@ const FileList: React.FC<FileListProps> = ({ isProcessingPdf, setIsProcessingPdf
                         lastModified: new Date().toISOString(),
                         type: 'application/pdf'
                     },
+                    {
+                        id: '/sample/EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
+                        name: 'EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
+                        queryId: 'Samples from France/EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
+                        size: 0,
+                        lastModified: new Date().toISOString(),
+                        type: 'application/pdf'
+                    },
                 ];
                 // Merge and deduplicate by id
                 const allFiles = [...apiFiles, ...sampleFiles.filter(sf => !apiFiles.some(af => af.id === sf.id))];
