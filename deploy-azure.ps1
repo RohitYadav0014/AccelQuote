@@ -31,7 +31,7 @@ az containerapp create `
   --ingress external `
   --transport http `
   --allow-insecure `
-  --env-vars REACT_APP_API_BASE_URL=http://20.81.208.37 REACT_APP_USE_MOCK_API=false `
+  --env-vars REACT_APP_API_BASE_URL=http://172.203.227.114:8080/ REACT_APP_USE_MOCK_API=false `
   --cpu 0.25 `
   --memory 0.5Gi `
   --min-replicas 1 `

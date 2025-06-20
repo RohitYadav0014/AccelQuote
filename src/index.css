@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import FontAwesome */
+@import '~@fortawesome/fontawesome-free/css/all.min.css';
+
+@layer base {
+  body {
+    @apply antialiased text-gray-800;
+  }
+}
+
+@layer components {
+  .file-item {
+    @apply bg-white my-2 p-4 border border-gray-300 rounded-md transition-colors duration-300;
+  }
+  
+  .file-item:hover {
+    @apply bg-gray-100 transform -translate-y-1;
+  }
+}
+
+.animate-progress-bar {
+  width: 100%;
+  animation: progressBar 2s linear infinite;
+}
+
+@keyframes progressBar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.7s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in-slow {
+  animation: fadeIn 1.5s;
+}
+
+.animate-glow {
+  box-shadow: 0 0 24px 8px #a5b4fc, 0 0 48px 16px #c7d2fe;
+  animation: glowPulse 2s alternate infinite;
+}
+
+@keyframes glowPulse {
+  0% { box-shadow: 0 0 24px 8px #a5b4fc, 0 0 48px 16px #c7d2fe; }
+  100% { box-shadow: 0 0 36px 16px #818cf8, 0 0 64px 24px #a5b4fc; }
+}
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 2.2s infinite;
+}
+
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-progress-bar {
+  width: 100%;
+  animation: progressBar 2s linear infinite;
+}
+@keyframes progressBar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+.animate-fade-in {
+  animation: fadeIn 0.7s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in-slow {
+  animation: fadeIn 1.5s;
+}
+.animate-glow {
+  animation: glow 1.5s infinite alternate;
+}
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px rgba(156, 163, 175, 0.6), 0 0 10px rgba(156, 163, 175, 0.4);
+  }
+  to {
+    box-shadow: 0 0 10px rgba(156, 163, 175, 0.8), 0 0 20px rgba(156, 163, 175, 0.6);
+  }
+}
+.animate-bounce-slow {
+  animation: bounce 1.5s infinite;
+}
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-spin-slow {
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

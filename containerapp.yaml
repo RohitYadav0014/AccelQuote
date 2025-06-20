@@ -22,7 +22,7 @@ properties:
         memory: 0.5Gi
       env:
       - name: REACT_APP_API_BASE_URL
-        value: "http://20.81.208.37"
+        value: "http://172.203.227.114:8080/"
       - name: REACT_APP_USE_MOCK_API
         value: "false"
     scale:
