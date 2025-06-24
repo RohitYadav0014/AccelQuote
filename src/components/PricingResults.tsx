@@ -1258,7 +1258,7 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                             Les prix sont valables pour une période de deux mois. En cas de révision des prix avant cette période, nous vous enverrons un devis mis à jour. Si vous avez des questions, veuillez contacter le signataire mentionné ci-dessous et nous serons ravis de vous répondre avec les clarifications nécessaires.
                         </div>
                         {/* Thank you note */}
-                        <div className="mb-6 text-gray-700 text-base font-semibold">Thank you.</div>
+                        <div className="mb-6 text-gray-700 text-base font-semibold">Merci.</div>
                         <div className="flex justify-end gap-2">
                             <button
                                 className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300"

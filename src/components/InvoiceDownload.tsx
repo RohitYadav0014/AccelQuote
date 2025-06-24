@@ -85,7 +85,7 @@ const InvoiceDownload: React.FC<InvoiceDownloadProps> = ({ customerInfo, finalPr
     const footerY = doc.internal.pageSize.getHeight() - 15;
     doc.setFontSize(9);
     doc.setTextColor(150);
-    doc.text('Thank you!', 14, footerY);
+    doc.text('Merci!', 14, footerY);
     // Use fileName for PDF if available
     const safeFileName = fileName ? fileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') : 'invoice';
     doc.save(`${safeFileName}_quote.pdf`);
