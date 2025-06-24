@@ -1255,7 +1255,7 @@ const PricingResults: React.FC<PricingResultsProps> = ({ extractionData, onDownl
                         </div>
                         {/* Pricing validity and contact note */}
                         <div className="mb-4 text-gray-700 text-base">
-                            The prices are valid for the period of two months. In case there is any revision of pricing before that period, we will send you updated quote. If you have any queries please reach out to the signatory mentioned below and we will be glad to respond to you with any clarification necessary.
+                            Les prix sont valables pour une période de deux mois. En cas de révision des prix avant cette période, nous vous enverrons un devis mis à jour. Si vous avez des questions, veuillez contacter le signataire mentionné ci-dessous et nous serons ravis de vous répondre avec les clarifications nécessaires.
                         </div>
                         {/* Thank you note */}
                         <div className="mb-6 text-gray-700 text-base font-semibold">Thank you.</div>
