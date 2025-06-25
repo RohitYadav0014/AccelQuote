@@ -164,3 +164,31 @@ export const computePricing = async (data: any) => {
         throw error;
     }
 };
+
+export const getPdfDownloadUrl = (filename: string): string => {
+    if (USE_MOCK_API) {
+        // For mock mode, return local sample files
+        if (filename.startsWith('/sample/') || filename.startsWith('sample/')) {
+            return filename.startsWith('/') ? filename : `/${filename}`;
+        }
+        return `/sample/${filename}`;
+    }
+
+    // Clean up the filename: remove any "/pdf" prefix and full URL if present
+    let cleanFilename = filename;
+    if (cleanFilename.includes('/pdf')) {
+        cleanFilename = cleanFilename.split('/pdf').pop() || cleanFilename;
+    }
+    // Remove API base URL if present
+    cleanFilename = cleanFilename.replace(`${API_BASE_URL}/`, '');
+    // Remove leading slash if present
+    cleanFilename = cleanFilename.startsWith('/') ? cleanFilename.slice(1) : cleanFilename;
+    
+    // Extract just the filename from the path (remove any directory structure)
+    // This handles cases like "Samples from France/EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf"
+    if (cleanFilename.includes('/')) {
+        cleanFilename = cleanFilename.split('/').pop() || cleanFilename;
+    }
+    
+    return `${API_BASE_URL}/download-pdf/?filename=${encodeURIComponent(cleanFilename)}`;
+};

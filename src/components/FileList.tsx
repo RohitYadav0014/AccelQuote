@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import FileItem from './FileItem';
 import PDFViewer from './PDFViewer';
-import { fetchFileList, extractPdfData } from '../services/api';
+import { fetchFileList, extractPdfData, getPdfDownloadUrl } from '../services/api';
 import { convertToMarkdown, downloadMarkdown } from '../utils/markdown';
 import { 
     saveExtraction, 
@@ -142,36 +142,14 @@ const FileList: React.FC<FileListProps> = ({ isProcessingPdf, setIsProcessingPdf
         if (filesLoaded) return;
         const fetchFiles = async () => {
             try {
-                const fileList = await fetchFileList();
-                const apiFiles = fileList.map((filePath: string) => ({
+                const fileList = await fetchFileList();                const apiFiles = fileList.map((filePath: string) => ({
                     id: filePath,
                     name: filePath.split('/').pop() || filePath,
                     size: 0,
                     lastModified: new Date().toISOString(),
                     type: 'application/pdf'
                 }));
-                // Hardcoded sample files from public/sample/
-                const sampleFiles = [
-                    {
-                        id: '/sample/EXTERNAL RFQ 60002435987.pdf',
-                        name: 'EXTERNAL RFQ 60002435987.pdf',
-                        queryId: 'Samples from France/EXTERNAL RFQ 6000243598.pdf',
-                        size: 0,
-                        lastModified: new Date().toISOString(),
-                        type: 'application/pdf'
-                    },
-                    {
-                        id: '/sample/EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
-                        name: 'EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
-                        queryId: 'Samples from France/EXTERNAL Demande de prix Y12PSV4001 et 4011.pdf',
-                        size: 0,
-                        lastModified: new Date().toISOString(),
-                        type: 'application/pdf'
-                    },
-                ];
-                // Merge and deduplicate by id
-                const allFiles = [...apiFiles, ...sampleFiles.filter(sf => !apiFiles.some(af => af.id === sf.id))];
-                setFiles(allFiles);
+                setFiles(apiFiles);
                 setFilesLoaded(true);
                 toast.success('Files loaded successfully!');
             } catch (err) {
@@ -367,8 +345,7 @@ const FileList: React.FC<FileListProps> = ({ isProcessingPdf, setIsProcessingPdf
                                 )}
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <button
+                        <div className="flex gap-2">                            <button
                                 onClick={() => handleFileSelect(file)}
                                 className={`px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ${selectedFile?.id === file.id ? 'ring-2 ring-blue-400' : ''}`}
                                 title="View PDF"
@@ -424,14 +401,12 @@ const FileList: React.FC<FileListProps> = ({ isProcessingPdf, setIsProcessingPdf
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-opacity-30"></div>
                 </div>
-            )}
-
-            {/* PDF Viewer Modal */}
+            )}            {/* PDF Viewer Modal */}
             {viewingFile && !isProcessingPdf && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-6 overflow-auto">
                     <div className="w-full max-w-4xl mx-auto">
                         <PDFViewer
-                            fileUrl={viewingFile.id}
+                            fileUrl={getPdfDownloadUrl((viewingFile as any).queryId || viewingFile.id)}
                             onClose={() => setViewingFile(null)}
                             onExtract={handleExtractData}
                             isExtracting={extracting}
