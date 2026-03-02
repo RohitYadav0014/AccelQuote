@@ -1,9 +1,12 @@
 location: eastus
 name: accelquote-ui
-resourceGroup: accelquote-rg
+resourceGroup: AccelQuote
 properties:
-  managedEnvironmentId: /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/accelquote-rg/providers/Microsoft.App/managedEnvironments/accelquote-env
+  managedEnvironmentId: /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/AccelQuote/providers/Microsoft.App/managedEnvironments/accelquote-env
   configuration:
+    registries:
+    - server: accelquote.azurecr.io
+      # ACR credentials will be automatically managed when using --registry-server flag
     ingress:
       external: true
       targetPort: 80
@@ -15,14 +18,14 @@ properties:
     secrets: []
   template:
     containers:
-    - image: accelquoteui:latest
+    - image: accelquote.azurecr.io/accelquoteui:latest
       name: accelquote-ui
       resources:
         cpu: 0.25
         memory: 0.5Gi
       env:
       - name: REACT_APP_API_BASE_URL
-        value: "http://172.203.227.114:8080"
+        value: "http://172.210.140.248"
       - name: REACT_APP_USE_MOCK_API
         value: "false"
     scale:
