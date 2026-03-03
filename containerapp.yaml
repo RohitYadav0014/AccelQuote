@@ -9,7 +9,7 @@ properties:
       # ACR credentials will be automatically managed when using --registry-server flag
     ingress:
       external: true
-      targetPort: 80
+      targetPort: 3000
       transport: http
       allowInsecure: true
       traffic:
