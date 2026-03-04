@@ -47,7 +47,7 @@ az containerapp create `
   --ingress external `
   --transport http `
   --allow-insecure `
-  --env-vars REACT_APP_API_BASE_URL=http://172.179.232.31 REACT_APP_USE_MOCK_API=false `
+  --env-vars REACT_APP_API_BASE_URL=http://accelquote-api.blacksmoke-120b4be7.westus2.azurecontainerapps.io REACT_APP_USE_MOCK_API=false `
   --cpu 0.25 `
   --memory 0.5Gi `
   --min-replicas 1 `

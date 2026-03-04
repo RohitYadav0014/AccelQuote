@@ -8,7 +8,7 @@ import {
 
 // Environment configuration
 const USE_MOCK_API = process.env.REACT_APP_USE_MOCK_API === 'true';
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://172.179.232.31';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://accelquote-api.blacksmoke-120b4be7.westus2.azurecontainerapps.io';
 
 // Log the current mode
 console.log(`Running in ${USE_MOCK_API ? 'MOCK' : 'LIVE'} mode`);
